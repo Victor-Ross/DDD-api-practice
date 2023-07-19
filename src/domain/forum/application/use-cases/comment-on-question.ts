@@ -1,0 +1,52 @@
+import { QuestionsRepository } from '../repositories/questions-repository';
+import { QuestionComment } from '../../enterprise/entities/question-comment';
+import { QuestionCommentsRepository } from '../repositories/question-comments-repository';
+import { UniqueEntityID } from '@/core/value-objects/unique-entity-id';
+import { Either, left, right } from '@/core/either';
+import { ResourceNotFoundError } from '@/core/errors/resource-not-found-error';
+
+interface CommentOnQuestionUseCaseRequest {
+  authorId: string;
+  questionId: string;
+  content: string;
+}
+
+type CommentOnQuestionUseCaseResponse = Either<
+  ResourceNotFoundError,
+  {
+    questionComment: QuestionComment;
+  }
+>;
+
+export class CommentOnQuestionUseCase {
+  constructor(
+    private questionsRepository: QuestionsRepository,
+    private questionCommentsRepository: QuestionCommentsRepository
+  ) {}
+
+  async execute({
+    authorId,
+    questionId,
+    content,
+  }: CommentOnQuestionUseCaseRequest): Promise<CommentOnQuestionUseCaseResponse> {
+    const question = await this.questionsRepository.findById(questionId);
+
+    if (!question) {
+      return left(new ResourceNotFoundError());
+    }
+
+    const newQuestionComment = QuestionComment.create({
+      authorId: new UniqueEntityID(authorId),
+      questionId: new UniqueEntityID(questionId),
+      content,
+    });
+
+    const questionComment = await this.questionCommentsRepository.create(
+      newQuestionComment
+    );
+
+    return right({
+      questionComment,
+    });
+  }
+}
